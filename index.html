@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>GEAR Reclaim Bay — Rusted Vault Pull</title>
-  <meta name="description" content="Mechanics reclaim $GEAR from the Base vault. Rusted Capstiller pull station — connect, check, claim." />
+  <title>Capstiller Claim Bay — GEAR + CAPs Unlock</title>
+  <meta name="description" content="GEAR buyer reclaim + CAPSTILLER (CAPs) locker unlock on Base. Rusted Capstiller pull station." />
   <style>
     :root {
       --bg: #140f0c;
@@ -269,8 +269,12 @@
 
       <div class="header">
         <div class="plate"><span class="led"></span> Capstiller · Base L2 Vault Bay</div>
-        <h1>GEAR RECLAIM BAY</h1>
-        <p class="subtitle">Rusted pull station for mechanics getting their gears back from the vault. Life is a game — play it onchain.</p>
+        <h1>CLAIM / UNLOCK BAY</h1>
+        <p class="subtitle">Two stations: GEAR buyer reclaim from the old vault, and CAPSTILLER (CAPs) locker unlock. Life is a game — play it onchain.</p>
+        <div class="tab-row" style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
+          <button type="button" class="btn btn-action" id="tabGear" onclick="showBay('gear')" style="flex:1">GEAR Reclaim</button>
+          <button type="button" class="btn btn-connect" id="tabCaps" onclick="showBay('caps')" style="flex:1">CAPs Unlock</button>
+        </div>
       </div>
 
       <div class="gauges">
@@ -284,7 +288,7 @@
         </div>
       </div>
 
-      <div class="bay">
+      <div class="bay" id="gearBay">
         <div class="connect-bar">
           <div class="wallet-status">
             <div class="status-dot" id="statusDot"></div>
@@ -333,12 +337,72 @@
         </div>
       </div>
 
+
+      <div class="bay" id="capsBay" style="display:none;margin-top:0">
+        <div class="connect-bar">
+          <div class="wallet-status">
+            <div class="status-dot" id="capsStatusDot"></div>
+            <span id="capsWalletLabel">Wallet: Not Connected</span>
+          </div>
+          <button class="btn btn-connect" id="capsBtnConnect" onclick="connectWallet()">Connect Wallet</button>
+        </div>
+
+        <div class="gauges" style="margin-top:12px">
+          <div class="gauge">
+            <div class="gauge-label">Locker reserve (CAPs)</div>
+            <div class="gauge-val" id="valCapsLocker">—</div>
+          </div>
+          <div class="gauge">
+            <div class="gauge-label">Your lock</div>
+            <div class="gauge-val" id="valCapsLockStatus">—</div>
+          </div>
+        </div>
+
+        <div class="result-box visible" id="capsResultBox" style="display:block;margin-top:14px">
+          <div class="result-row">
+            <span style="color: var(--muted)">Lock ID</span>
+            <span style="font-family: var(--mono); font-weight: 600" id="capsLockId">—</span>
+          </div>
+          <div class="result-row">
+            <span style="color: var(--muted)">Locked amount</span>
+            <span style="font-family: var(--mono); font-weight: 600" id="capsAmount">—</span>
+          </div>
+          <div class="result-row">
+            <span style="color: var(--muted)">Unlock time (UTC)</span>
+            <span style="font-family: var(--mono); font-weight: 600" id="capsUnlockAt">—</span>
+          </div>
+          <div class="result-row">
+            <span style="color: var(--muted)">Status</span>
+            <span id="capsBadge" class="badge badge-ineligible">Idle</span>
+          </div>
+        </div>
+
+        <button class="btn btn-claim" id="btnCapsUnlock" disabled onclick="executeCapsUnlock()" style="margin-top:14px">
+          Unlock CAPs From Locker
+        </button>
+        <div class="feedback" id="capsFeedbackBox"></div>
+
+        <div class="security">
+          <h3>CAPs locker plate</h3>
+          <ul>
+            <li><strong>Not the GEAR vault.</strong> This is a separate lock/unlock contract — no buyer claim path.</li>
+            <li><strong>Unlock call:</strong> <code>unlock(user, token, id)</code> selector <code>0x59508f8f</code>. No approvals.</li>
+            <li><strong>Locker:</strong> <code>0xA00F87E9D5fA643bd1061BC497D02eFF2E2d5F79</code></li>
+            <li><strong>CAPSTILLER (CAPs):</strong> <code>0xA0108286307E34e9Ecea184fd08F2d022A12a9C8</code> (18 decimals)</li>
+          </ul>
+        </div>
+      </div>
+
       <div class="links-footer">
         <a href="https://basescan.org/address/0xc6bA5351b50eee53e09F399407AeD335F792af4C" target="_blank" rel="noopener">Vault</a>
         ·
         <a href="https://basescan.org/token/0x5880cD05605A549f1DAb01a53ca61Ee559244bD1" target="_blank" rel="noopener">GEAR</a>
         ·
         <a href="https://landonthis.gearup.wtf" target="_blank" rel="noopener">Lore</a>
+        ·
+        <a href="https://basescan.org/address/0xA00F87E9D5fA643bd1061BC497D02eFF2E2d5F79" target="_blank" rel="noopener">CAPs Locker</a>
+        ·
+        <a href="https://basescan.org/token/0xA0108286307E34e9Ecea184fd08F2d022A12a9C8" target="_blank" rel="noopener">CAPs</a>
       </div>
     </div>
     <p class="foot-note">FIND A GEAR · TRADE A GEAR · BE BASED</p>
@@ -613,6 +677,199 @@
       fb.className = "feedback visible feedback-" + type;
       fb.innerText = msg;
     }
-  </script>
+  
+    // ——— CAPs locker (NOT same as GEAR presale claim) ———
+    const CAPS_LOCKER = "0xA00F87E9D5fA643bd1061BC497D02eFF2E2d5F79";
+    const CAPS_TOKEN = "0xA0108286307E34e9Ecea184fd08F2d022A12a9C8";
+    let capsLockId = null;
+    let capsCanUnlock = false;
+
+    function showBay(which) {
+      const gear = document.getElementById('gearBay');
+      const caps = document.getElementById('capsBay');
+      const tg = document.getElementById('tabGear');
+      const tc = document.getElementById('tabCaps');
+      if (which === 'caps') {
+        gear.style.display = 'none';
+        caps.style.display = 'block';
+        tg.className = 'btn btn-connect';
+        tc.className = 'btn btn-action';
+        refreshCapsLocker();
+        if (userAccount) loadCapsLock(userAccount);
+      } else {
+        gear.style.display = 'block';
+        caps.style.display = 'none';
+        tg.className = 'btn btn-action';
+        tc.className = 'btn btn-connect';
+      }
+    }
+
+    function showCapsFeedback(msg, type) {
+      const fb = document.getElementById('capsFeedbackBox');
+      fb.className = 'feedback visible feedback-' + (type === 'success' ? 'ok' : type === 'error' ? 'err' : 'info');
+      if (type === 'success') fb.className = 'feedback visible feedback-ok';
+      else if (type === 'error') fb.className = 'feedback visible feedback-err';
+      else fb.className = 'feedback visible feedback-info';
+      fb.innerText = msg;
+      fb.style.display = 'block';
+    }
+
+    async function refreshCapsLocker() {
+      try {
+        const data = '0x70a08231' + CAPS_LOCKER.slice(2).toLowerCase().padStart(64, '0');
+        const balHex = await ethCall(CAPS_TOKEN, data);
+        const bal = Number(BigInt(balHex || '0x0')) / 1e18;
+        document.getElementById('valCapsLocker').innerText = bal.toLocaleString(undefined, { maximumFractionDigits: 2 });
+      } catch (e) {
+        document.getElementById('valCapsLocker').innerText = '—';
+      }
+    }
+
+    async function ethCall(to, data) {
+      const res = await fetch(BASE_RPC, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_call', params: [{ to, data }, 'latest'] })
+      });
+      const json = await res.json();
+      if (json.error) throw new Error(json.error.message || 'eth_call failed');
+      return json.result;
+    }
+
+    async function loadCapsLock(addr) {
+      capsLockId = null;
+      capsCanUnlock = false;
+      document.getElementById('btnCapsUnlock').disabled = true;
+      document.getElementById('capsWalletLabel').innerText = 'Wallet: ' + addr.slice(0, 6) + '…' + addr.slice(-4);
+      document.getElementById('capsStatusDot').classList.add('active');
+      try {
+        // getIDs(user, token)
+        const getIdsData = '0x03a97a95'
+          + addr.slice(2).toLowerCase().padStart(64, '0')
+          + CAPS_TOKEN.slice(2).toLowerCase().padStart(64, '0');
+        const idsRaw = await ethCall(CAPS_LOCKER, getIdsData);
+        const ids = decodeUintArray(idsRaw);
+        if (!ids.length) {
+          document.getElementById('capsLockId').innerText = 'none';
+          document.getElementById('capsAmount').innerText = '0 CAPs';
+          document.getElementById('capsUnlockAt').innerText = '—';
+          document.getElementById('valCapsLockStatus').innerText = 'No lock';
+          const badge = document.getElementById('capsBadge');
+          badge.className = 'badge badge-ineligible';
+          badge.innerText = 'NO LOCK';
+          showCapsFeedback('No CAPs lock IDs for this wallet on the locker.', 'info');
+          return;
+        }
+        // use first id (Cap has id 1)
+        const id = ids[0];
+        capsLockId = id;
+        document.getElementById('capsLockId').innerText = String(id);
+        // locks(token, user, id) — arg order is token first
+        const locksData = '0x3339657d'
+          + CAPS_TOKEN.slice(2).toLowerCase().padStart(64, '0')
+          + addr.slice(2).toLowerCase().padStart(64, '0')
+          + BigInt(id).toString(16).padStart(64, '0');
+        const lockRaw = await ethCall(CAPS_LOCKER, locksData);
+        const words = decodeWords(lockRaw);
+        // Empirical layout: [?, ?, ?, offset, decimals, amount, lockedAt, unlockAt, ...]
+        const amount = words.length > 5 ? words[5] : 0n;
+        const unlockAt = words.length > 7 ? Number(words[7]) : 0;
+        const amtNum = Number(amount) / 1e18;
+        document.getElementById('capsAmount').innerText = amtNum.toLocaleString(undefined, { maximumFractionDigits: 4 }) + ' CAPs';
+        document.getElementById('capsUnlockAt').innerText = unlockAt
+          ? new Date(unlockAt * 1000).toISOString().replace('T', ' ').replace('.000Z', ' UTC')
+          : '—';
+        const now = Math.floor(Date.now() / 1000);
+        const badge = document.getElementById('capsBadge');
+        if (amount === 0n) {
+          document.getElementById('valCapsLockStatus').innerText = 'Empty';
+          badge.className = 'badge badge-claimed';
+          badge.innerText = 'ALREADY CLEAR';
+          showCapsFeedback('Lock id exists but amount is 0 — already unlocked or empty.', 'info');
+        } else if (unlockAt && now >= unlockAt) {
+          capsCanUnlock = true;
+          document.getElementById('btnCapsUnlock').disabled = false;
+          document.getElementById('valCapsLockStatus').innerText = 'Ready';
+          badge.className = 'badge badge-eligible';
+          badge.innerText = 'READY TO UNLOCK';
+          showCapsFeedback('Unlock window is open. Pull CAPs back to this wallet.', 'success');
+        } else {
+          document.getElementById('valCapsLockStatus').innerText = 'Locked';
+          badge.className = 'badge badge-ineligible';
+          badge.innerText = 'STILL LOCKED';
+          showCapsFeedback('Too early — unlock time has not passed yet.', 'error');
+        }
+      } catch (e) {
+        showCapsFeedback('Failed to read locker: ' + (e.message || e), 'error');
+      }
+    }
+
+    function decodeWords(hex) {
+      if (!hex || hex === '0x') return [];
+      const h = hex.slice(2);
+      const out = [];
+      for (let i = 0; i + 64 <= h.length; i += 64) out.push(BigInt('0x' + h.slice(i, i + 64)));
+      return out;
+    }
+
+    function decodeUintArray(hex) {
+      const words = decodeWords(hex);
+      if (words.length < 2) return [];
+      // offset, length, items...
+      const offset = Number(words[0]) / 32;
+      const len = Number(words[1]);
+      const ids = [];
+      for (let i = 0; i < len; i++) ids.push(Number(words[2 + i]));
+      return ids;
+    }
+
+    async function executeCapsUnlock() {
+      if (!userAccount || capsLockId == null || !capsCanUnlock) return;
+      if (!window.ethereum) {
+        showCapsFeedback('No wallet provider found.', 'error');
+        return;
+      }
+      const btn = document.getElementById('btnCapsUnlock');
+      btn.disabled = true;
+      try {
+        showCapsFeedback('Sending unlock(user, token, id) on Base…', 'info');
+        const chainId = await window.ethereum.request({ method: 'eth_chainId' });
+        if (chainId !== BASE_CHAIN_ID_HEX) {
+          await window.ethereum.request({
+            method: 'wallet_switchEthereumChain',
+            params: [{ chainId: BASE_CHAIN_ID_HEX }]
+          });
+        }
+        // unlock(address user, address token, uint256 id) = 0x59508f8f
+        const data = '0x59508f8f'
+          + userAccount.slice(2).toLowerCase().padStart(64, '0')
+          + CAPS_TOKEN.slice(2).toLowerCase().padStart(64, '0')
+          + BigInt(capsLockId).toString(16).padStart(64, '0');
+        const txHash = await window.ethereum.request({
+          method: 'eth_sendTransaction',
+          params: [{ from: userAccount, to: CAPS_LOCKER, data, value: '0x0' }]
+        });
+        showCapsFeedback('Unlock sent: ' + txHash, 'success');
+        setTimeout(() => { refreshCapsLocker(); loadCapsLock(userAccount); }, 8000);
+      } catch (e) {
+        showCapsFeedback(e.message || String(e), 'error');
+        btn.disabled = false;
+      }
+    }
+
+    // Hook connect to also refresh CAPs bay
+    const _setConnectedAccount = setConnectedAccount;
+    setConnectedAccount = function(addr) {
+      _setConnectedAccount(addr);
+      document.getElementById('capsWalletLabel').innerText = 'Wallet: ' + addr.slice(0, 6) + '…' + addr.slice(-4);
+      document.getElementById('capsStatusDot').classList.add('active');
+      if (document.getElementById('capsBay').style.display !== 'none') loadCapsLock(addr);
+    };
+
+    window.addEventListener('DOMContentLoaded', () => {
+      refreshCapsLocker();
+    });
+
+</script>
 </body>
 </html>
