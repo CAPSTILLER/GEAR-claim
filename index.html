@@ -256,7 +256,15 @@
       .gauges { grid-template-columns: 1fr; }
       .input-row { flex-direction: column; }
     }
-  </style>
+  
+    .gear-home-cutout {
+      position: fixed; left: 50%; bottom: 12px; transform: translateX(-50%);
+      z-index: 40; display: inline-flex; opacity: 0.9; transition: opacity .15s ease; line-height: 0;
+    }
+    .gear-home-cutout:hover, .gear-home-cutout:focus-visible { opacity: 1; }
+    .gear-home-cutout:active { opacity: 0.7; }
+    .gear-home-cutout img { height: 56px; width: auto; display: block; image-rendering: pixelated; }
+</style>
 </head>
 <body>
   <div class="wrap">
@@ -930,5 +938,9 @@
     };
 
 </script>
+
+  <a class="gear-home-cutout" href="https://landonthis.gearup.wtf" target="_blank" rel="noopener noreferrer" aria-label="Gear home — landonthis">
+    <img src="/gear-logo-cutout.svg" alt="" height="56" width="213" />
+  </a>
 </body>
 </html>
