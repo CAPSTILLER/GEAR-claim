@@ -1,0 +1,44 @@
+{
+  "slug": "gear-claim",
+  "title": "GEAR Reclaim Bay",
+  "description": "Rusted Capstiller vault station \u2014 mechanics reclaim $GEAR on Base. Connect, check, pull from vault.",
+  "tags": [
+    "tokens",
+    "claim",
+    "base",
+    "presale"
+  ],
+  "permissions": [
+    "read:chain",
+    "prepare:transaction",
+    "fetch:http"
+  ],
+  "scripts": [
+    "checkStatus",
+    "prepareClaimTx"
+  ],
+  "publicScripts": [
+    "checkStatus"
+  ],
+  "publicScriptLimits": {
+    "checkStatus": {
+      "maxHttpCalls": 0,
+      "maxChainReads": 5,
+      "maxExecMs": 3000,
+      "maxReturnBytes": 4096,
+      "perViewerRateLimit": {
+        "rpm": 20,
+        "rph": 200
+      },
+      "perAppRateLimit": {
+        "rph": 2000
+      }
+    }
+  },
+  "assets": [],
+  "publicDataKeys": [],
+  "secrets": [],
+  "schedule": [],
+  "frontendIdentity": "owner",
+  "dataSchemas": {}
+}
