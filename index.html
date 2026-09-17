@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Capstiller Claim Bay — GEAR + CAPs Unlock</title>
-  <meta name="description" content="GEAR buyer reclaim + CAPSTILLER (CAPs) locker unlock on Base. Rusted Capstiller pull station." />
+  <title>GEAR Reclaim Bay — Vault + Contract Unlock</title>
+  <meta name="description" content="Mechanics reclaim $GEAR from the Base vault. Rusted Capstiller pull station — connect, check, claim." />
   <style>
     :root {
       --bg: #140f0c;
@@ -269,11 +269,10 @@
 
       <div class="header">
         <div class="plate"><span class="led"></span> Capstiller · Base L2 Vault Bay</div>
-        <h1>CLAIM / UNLOCK BAY</h1>
-        <p class="subtitle">Two stations: GEAR buyer reclaim from the old vault, and CAPSTILLER (CAPs) locker unlock. Life is a game — play it onchain.</p>
-        <div class="tab-row" style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
-          <button type="button" class="btn btn-action" id="tabGear" onclick="showBay('gear')" style="flex:1">GEAR Reclaim</button>
-          <button type="button" class="btn btn-connect" id="tabCaps" onclick="showBay('caps')" style="flex:1">CAPs Unlock</button>
+        <h1>GEAR RECLAIM BAY</h1>
+        <p class="subtitle">Rusted pull station for mechanics getting their gears back from the vault. Life is a game — play it onchain.</p>
+        <div style="margin-top:14px">
+          <button type="button" class="btn btn-connect" id="btnOpenUnlock" onclick="toggleUnlockBay()" style="width:100%">Unlock from a contract</button>
         </div>
       </div>
 
@@ -288,7 +287,7 @@
         </div>
       </div>
 
-      <div class="bay" id="gearBay">
+      <div class="bay">
         <div class="connect-bar">
           <div class="wallet-status">
             <div class="status-dot" id="statusDot"></div>
@@ -338,57 +337,68 @@
       </div>
 
 
-      <div class="bay" id="capsBay" style="display:none;margin-top:0">
+      <div class="bay" id="unlockBay" style="display:none;margin-top:16px">
+        <div class="plate" style="margin-bottom:12px"><span class="led"></span> Generic contract unlock · lockers / claimers</div>
+        <p style="color:var(--muted);font-size:13px;margin:0 0 14px;line-height:1.45">
+          Paste a locker or claim contract, connect the wallet that owns the lock, then pull tokens.
+          Same path we used for CAPSTILLER CAPs locks — works when the contract supports <code>getIDs</code> / <code>unlock</code> (and similar claim selectors when detectable).
+        </p>
+
         <div class="connect-bar">
           <div class="wallet-status">
-            <div class="status-dot" id="capsStatusDot"></div>
-            <span id="capsWalletLabel">Wallet: Not Connected</span>
+            <div class="status-dot" id="uStatusDot"></div>
+            <span id="uWalletLabel">Wallet: Not Connected</span>
           </div>
-          <button class="btn btn-connect" id="capsBtnConnect" onclick="connectWallet()">Connect Wallet</button>
+          <button class="btn btn-connect" onclick="connectWallet()">Connect Wallet</button>
         </div>
 
-        <div class="gauges" style="margin-top:12px">
-          <div class="gauge">
-            <div class="gauge-label">Locker reserve (CAPs)</div>
-            <div class="gauge-val" id="valCapsLocker">—</div>
-          </div>
-          <div class="gauge">
-            <div class="gauge-label">Your lock</div>
-            <div class="gauge-val" id="valCapsLockStatus">—</div>
-          </div>
+        <div class="input-group">
+          <label class="input-label" for="uContract">Contract (locker / claimer)</label>
+          <input type="text" id="uContract" placeholder="0x… locker or claim contract" spellcheck="false" autocomplete="off" />
         </div>
-
-        <div class="result-box visible" id="capsResultBox" style="display:block;margin-top:14px">
-          <div class="result-row">
-            <span style="color: var(--muted)">Lock ID</span>
-            <span style="font-family: var(--mono); font-weight: 600" id="capsLockId">—</span>
-          </div>
-          <div class="result-row">
-            <span style="color: var(--muted)">Locked amount</span>
-            <span style="font-family: var(--mono); font-weight: 600" id="capsAmount">—</span>
-          </div>
-          <div class="result-row">
-            <span style="color: var(--muted)">Unlock time (UTC)</span>
-            <span style="font-family: var(--mono); font-weight: 600" id="capsUnlockAt">—</span>
-          </div>
-          <div class="result-row">
-            <span style="color: var(--muted)">Status</span>
-            <span id="capsBadge" class="badge badge-ineligible">Idle</span>
+        <div class="input-group">
+          <label class="input-label" for="uToken">Token (optional if contract exposes token())</label>
+          <div class="input-row">
+            <input type="text" id="uToken" placeholder="0x… ERC-20 to unlock" spellcheck="false" autocomplete="off" />
+            <button class="btn btn-action" onclick="scanUnlockContract()">Scan</button>
           </div>
         </div>
 
-        <button class="btn btn-claim" id="btnCapsUnlock" disabled onclick="executeCapsUnlock()" style="margin-top:14px">
-          Unlock CAPs From Locker
+        <div class="result-box visible" id="uResultBox" style="display:block">
+          <div class="result-row">
+            <span style="color:var(--muted)">Detected path</span>
+            <span id="uPath" style="font-family:var(--mono);font-weight:600">—</span>
+          </div>
+          <div class="result-row">
+            <span style="color:var(--muted)">Lock / claim id</span>
+            <span id="uLockId" style="font-family:var(--mono);font-weight:600">—</span>
+          </div>
+          <div class="result-row">
+            <span style="color:var(--muted)">Amount</span>
+            <span id="uAmount" style="font-family:var(--mono);font-weight:600">—</span>
+          </div>
+          <div class="result-row">
+            <span style="color:var(--muted)">Unlock time</span>
+            <span id="uUnlockAt" style="font-family:var(--mono);font-weight:600">—</span>
+          </div>
+          <div class="result-row">
+            <span style="color:var(--muted)">Status</span>
+            <span id="uBadge" class="badge badge-ineligible">Idle</span>
+          </div>
+        </div>
+
+        <button class="btn btn-claim" id="btnDoUnlock" disabled onclick="executeGenericUnlock()" style="margin-top:14px">
+          Pull Tokens From Contract
         </button>
-        <div class="feedback" id="capsFeedbackBox"></div>
+        <div class="feedback" id="uFeedback"></div>
 
         <div class="security">
-          <h3>CAPs locker plate</h3>
+          <h3>How this bay works</h3>
           <ul>
-            <li><strong>Not the GEAR vault.</strong> This is a separate lock/unlock contract — no buyer claim path.</li>
-            <li><strong>Unlock call:</strong> <code>unlock(user, token, id)</code> selector <code>0x59508f8f</code>. No approvals.</li>
-            <li><strong>Locker:</strong> <code>0xA00F87E9D5fA643bd1061BC497D02eFF2E2d5F79</code></li>
-            <li><strong>CAPSTILLER (CAPs):</strong> <code>0xA0108286307E34e9Ecea184fd08F2d022A12a9C8</code> (18 decimals)</li>
+            <li><strong>Locker style:</strong> <code>getIDs(user,token)</code> → <code>locks(token,user,id)</code> → <code>unlock(user,token,id)</code> (<code>0x59508f8f</code>).</li>
+            <li><strong>Claim style:</strong> if scan finds <code>claimTokens()</code> eligibility for your wallet, it offers that pull instead.</li>
+            <li><strong>No approvals</strong> for these paths — contract sends tokens to you.</li>
+            <li>Example CAPs locker: <code>0xA00F87E9D5fA643bd1061BC497D02eFF2E2d5F79</code> · token <code>0xA0108286307E34e9Ecea184fd08F2d022A12a9C8</code></li>
           </ul>
         </div>
       </div>
@@ -399,10 +409,6 @@
         <a href="https://basescan.org/token/0x5880cD05605A549f1DAb01a53ca61Ee559244bD1" target="_blank" rel="noopener">GEAR</a>
         ·
         <a href="https://landonthis.gearup.wtf" target="_blank" rel="noopener">Lore</a>
-        ·
-        <a href="https://basescan.org/address/0xA00F87E9D5fA643bd1061BC497D02eFF2E2d5F79" target="_blank" rel="noopener">CAPs Locker</a>
-        ·
-        <a href="https://basescan.org/token/0xA0108286307E34e9Ecea184fd08F2d022A12a9C8" target="_blank" rel="noopener">CAPs</a>
       </div>
     </div>
     <p class="foot-note">FIND A GEAR · TRADE A GEAR · BE BASED</p>
@@ -678,51 +684,43 @@
       fb.innerText = msg;
     }
   
-    // ——— CAPs locker (NOT same as GEAR presale claim) ———
-    const CAPS_LOCKER = "0xA00F87E9D5fA643bd1061BC497D02eFF2E2d5F79";
-    const CAPS_TOKEN = "0xA0108286307E34e9Ecea184fd08F2d022A12a9C8";
-    let capsLockId = null;
-    let capsCanUnlock = false;
+    // ——— Generic contract unlock bay ———
+    let unlockBayOpen = false;
+    let uCanPull = false;
+    let uMode = null; // 'locker' | 'claimTokens'
+    let uLockId = null;
+    let uResolvedToken = null;
+    let uDecimals = 18;
 
-    function showBay(which) {
-      const gear = document.getElementById('gearBay');
-      const caps = document.getElementById('capsBay');
-      const tg = document.getElementById('tabGear');
-      const tc = document.getElementById('tabCaps');
-      if (which === 'caps') {
-        gear.style.display = 'none';
-        caps.style.display = 'block';
-        tg.className = 'btn btn-connect';
-        tc.className = 'btn btn-action';
-        refreshCapsLocker();
-        if (userAccount) loadCapsLock(userAccount);
-      } else {
-        gear.style.display = 'block';
-        caps.style.display = 'none';
-        tg.className = 'btn btn-action';
-        tc.className = 'btn btn-connect';
+    function toggleUnlockBay() {
+      unlockBayOpen = !unlockBayOpen;
+      const bay = document.getElementById('unlockBay');
+      const btn = document.getElementById('btnOpenUnlock');
+      bay.style.display = unlockBayOpen ? 'block' : 'none';
+      btn.innerText = unlockBayOpen ? 'Hide contract unlock' : 'Unlock from a contract';
+      if (unlockBayOpen && userAccount) {
+        document.getElementById('uWalletLabel').innerText = 'Wallet: ' + shortAddr(userAccount);
+        document.getElementById('uStatusDot').classList.add('active');
       }
     }
 
-    function showCapsFeedback(msg, type) {
-      const fb = document.getElementById('capsFeedbackBox');
-      fb.className = 'feedback visible feedback-' + (type === 'success' ? 'ok' : type === 'error' ? 'err' : 'info');
-      if (type === 'success') fb.className = 'feedback visible feedback-ok';
-      else if (type === 'error') fb.className = 'feedback visible feedback-err';
-      else fb.className = 'feedback visible feedback-info';
-      fb.innerText = msg;
+    function shortAddr(a) {
+      return a.slice(0, 6) + '…' + a.slice(-4);
+    }
+
+    function uFeedback(msg, type) {
+      const fb = document.getElementById('uFeedback');
       fb.style.display = 'block';
+      fb.className = 'feedback visible ' + (type === 'success' ? 'feedback-ok' : type === 'error' ? 'feedback-err' : 'feedback-info');
+      fb.innerText = msg;
     }
 
-    async function refreshCapsLocker() {
-      try {
-        const data = '0x70a08231' + CAPS_LOCKER.slice(2).toLowerCase().padStart(64, '0');
-        const balHex = await ethCall(CAPS_TOKEN, data);
-        const bal = Number(BigInt(balHex || '0x0')) / 1e18;
-        document.getElementById('valCapsLocker').innerText = bal.toLocaleString(undefined, { maximumFractionDigits: 2 });
-      } catch (e) {
-        document.getElementById('valCapsLocker').innerText = '—';
-      }
+    function padAddr(a) {
+      return a.slice(2).toLowerCase().padStart(64, '0');
+    }
+
+    function padUint(n) {
+      return BigInt(n).toString(16).padStart(64, '0');
     }
 
     async function ethCall(to, data) {
@@ -732,76 +730,8 @@
         body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_call', params: [{ to, data }, 'latest'] })
       });
       const json = await res.json();
-      if (json.error) throw new Error(json.error.message || 'eth_call failed');
+      if (json.error) throw new Error(json.error.message || 'call failed');
       return json.result;
-    }
-
-    async function loadCapsLock(addr) {
-      capsLockId = null;
-      capsCanUnlock = false;
-      document.getElementById('btnCapsUnlock').disabled = true;
-      document.getElementById('capsWalletLabel').innerText = 'Wallet: ' + addr.slice(0, 6) + '…' + addr.slice(-4);
-      document.getElementById('capsStatusDot').classList.add('active');
-      try {
-        // getIDs(user, token)
-        const getIdsData = '0x03a97a95'
-          + addr.slice(2).toLowerCase().padStart(64, '0')
-          + CAPS_TOKEN.slice(2).toLowerCase().padStart(64, '0');
-        const idsRaw = await ethCall(CAPS_LOCKER, getIdsData);
-        const ids = decodeUintArray(idsRaw);
-        if (!ids.length) {
-          document.getElementById('capsLockId').innerText = 'none';
-          document.getElementById('capsAmount').innerText = '0 CAPs';
-          document.getElementById('capsUnlockAt').innerText = '—';
-          document.getElementById('valCapsLockStatus').innerText = 'No lock';
-          const badge = document.getElementById('capsBadge');
-          badge.className = 'badge badge-ineligible';
-          badge.innerText = 'NO LOCK';
-          showCapsFeedback('No CAPs lock IDs for this wallet on the locker.', 'info');
-          return;
-        }
-        // use first id (Cap has id 1)
-        const id = ids[0];
-        capsLockId = id;
-        document.getElementById('capsLockId').innerText = String(id);
-        // locks(token, user, id) — arg order is token first
-        const locksData = '0x3339657d'
-          + CAPS_TOKEN.slice(2).toLowerCase().padStart(64, '0')
-          + addr.slice(2).toLowerCase().padStart(64, '0')
-          + BigInt(id).toString(16).padStart(64, '0');
-        const lockRaw = await ethCall(CAPS_LOCKER, locksData);
-        const words = decodeWords(lockRaw);
-        // Empirical layout: [?, ?, ?, offset, decimals, amount, lockedAt, unlockAt, ...]
-        const amount = words.length > 5 ? words[5] : 0n;
-        const unlockAt = words.length > 7 ? Number(words[7]) : 0;
-        const amtNum = Number(amount) / 1e18;
-        document.getElementById('capsAmount').innerText = amtNum.toLocaleString(undefined, { maximumFractionDigits: 4 }) + ' CAPs';
-        document.getElementById('capsUnlockAt').innerText = unlockAt
-          ? new Date(unlockAt * 1000).toISOString().replace('T', ' ').replace('.000Z', ' UTC')
-          : '—';
-        const now = Math.floor(Date.now() / 1000);
-        const badge = document.getElementById('capsBadge');
-        if (amount === 0n) {
-          document.getElementById('valCapsLockStatus').innerText = 'Empty';
-          badge.className = 'badge badge-claimed';
-          badge.innerText = 'ALREADY CLEAR';
-          showCapsFeedback('Lock id exists but amount is 0 — already unlocked or empty.', 'info');
-        } else if (unlockAt && now >= unlockAt) {
-          capsCanUnlock = true;
-          document.getElementById('btnCapsUnlock').disabled = false;
-          document.getElementById('valCapsLockStatus').innerText = 'Ready';
-          badge.className = 'badge badge-eligible';
-          badge.innerText = 'READY TO UNLOCK';
-          showCapsFeedback('Unlock window is open. Pull CAPs back to this wallet.', 'success');
-        } else {
-          document.getElementById('valCapsLockStatus').innerText = 'Locked';
-          badge.className = 'badge badge-ineligible';
-          badge.innerText = 'STILL LOCKED';
-          showCapsFeedback('Too early — unlock time has not passed yet.', 'error');
-        }
-      } catch (e) {
-        showCapsFeedback('Failed to read locker: ' + (e.message || e), 'error');
-      }
     }
 
     function decodeWords(hex) {
@@ -815,60 +745,189 @@
     function decodeUintArray(hex) {
       const words = decodeWords(hex);
       if (words.length < 2) return [];
-      // offset, length, items...
-      const offset = Number(words[0]) / 32;
       const len = Number(words[1]);
       const ids = [];
-      for (let i = 0; i < len; i++) ids.push(Number(words[2 + i]));
+      for (let i = 0; i < len && 2 + i < words.length; i++) ids.push(Number(words[2 + i]));
       return ids;
     }
 
-    async function executeCapsUnlock() {
-      if (!userAccount || capsLockId == null || !capsCanUnlock) return;
-      if (!window.ethereum) {
-        showCapsFeedback('No wallet provider found.', 'error');
+    function isAddr(s) {
+      return /^0x[a-fA-F0-9]{40}$/.test((s || '').trim());
+    }
+
+    async function readDecimals(token) {
+      try {
+        const r = await ethCall(token, '0x313ce567');
+        return Number(BigInt(r));
+      } catch (_) { return 18; }
+    }
+
+    async function tryTokenOnContract(contract) {
+      // token() 0xfc0c546a
+      try {
+        const r = await ethCall(contract, '0xfc0c546a');
+        if (r && r.length >= 66) {
+          const t = '0x' + r.slice(-40);
+          if (t !== '0x0000000000000000000000000000000000000000') return t;
+        }
+      } catch (_) {}
+      return null;
+    }
+
+    async function scanUnlockContract() {
+      uCanPull = false;
+      uMode = null;
+      uLockId = null;
+      document.getElementById('btnDoUnlock').disabled = true;
+      const contract = document.getElementById('uContract').value.trim();
+      let token = document.getElementById('uToken').value.trim();
+      if (!isAddr(contract)) {
+        uFeedback('Enter a valid contract address.', 'error');
         return;
       }
-      const btn = document.getElementById('btnCapsUnlock');
+      if (!userAccount) {
+        uFeedback('Connect the wallet that owns the lock or claim first.', 'error');
+        return;
+      }
+      if (!isAddr(token)) {
+        token = await tryTokenOnContract(contract);
+        if (token) {
+          document.getElementById('uToken').value = token;
+          uFeedback('Picked up token() from contract: ' + shortAddr(token), 'info');
+        }
+      }
+      if (!isAddr(token)) {
+        uFeedback('Need a token address (contract has no token() view).', 'error');
+        return;
+      }
+      uResolvedToken = token;
+      uDecimals = await readDecimals(token);
+
+      // 1) Locker path: getIDs(user, token) 0x03a97a95
+      try {
+        const idsRaw = await ethCall(contract, '0x03a97a95' + padAddr(userAccount) + padAddr(token));
+        const ids = decodeUintArray(idsRaw);
+        if (ids.length) {
+          const id = ids[0];
+          // locks(token, user, id) 0x3339657d
+          const lockRaw = await ethCall(contract, '0x3339657d' + padAddr(token) + padAddr(userAccount) + padUint(id));
+          const words = decodeWords(lockRaw);
+          const amount = words.length > 5 ? words[5] : 0n;
+          const unlockAt = words.length > 7 ? Number(words[7]) : 0;
+          const amt = Number(amount) / (10 ** uDecimals);
+          document.getElementById('uPath').innerText = 'locker unlock(user,token,id)';
+          document.getElementById('uLockId').innerText = String(id);
+          document.getElementById('uAmount').innerText = amt.toLocaleString(undefined, { maximumFractionDigits: 6 });
+          document.getElementById('uUnlockAt').innerText = unlockAt
+            ? new Date(unlockAt * 1000).toISOString().replace('T', ' ').replace('.000Z', ' UTC')
+            : '—';
+          const badge = document.getElementById('uBadge');
+          const now = Math.floor(Date.now() / 1000);
+          if (amount === 0n) {
+            badge.className = 'badge badge-claimed';
+            badge.innerText = 'EMPTY / DONE';
+            uFeedback('Lock found but amount is 0.', 'info');
+          } else if (!unlockAt || now >= unlockAt) {
+            uMode = 'locker';
+            uLockId = id;
+            uCanPull = true;
+            document.getElementById('btnDoUnlock').disabled = false;
+            badge.className = 'badge badge-eligible';
+            badge.innerText = 'READY';
+            uFeedback('Locker path ready — pull tokens to your connected wallet.', 'success');
+          } else {
+            badge.className = 'badge badge-ineligible';
+            badge.innerText = 'STILL LOCKED';
+            uFeedback('Tokens are still time-locked.', 'error');
+          }
+          return;
+        }
+      } catch (e) {
+        // not a locker — fall through
+      }
+
+      // 2) GEAR-style claimTokens: checkContributorValidity + claimTokens
+      try {
+        const validRaw = await ethCall(contract, '0x4879ef26' + padAddr(userAccount));
+        const validity = BigInt(validRaw || '0x0');
+        const claimedRaw = await ethCall(contract, '0x2a592e9f' + padAddr(userAccount));
+        const claimed = BigInt(claimedRaw || '0x0');
+        document.getElementById('uPath').innerText = 'claimTokens()';
+        document.getElementById('uLockId').innerText = 'n/a';
+        document.getElementById('uAmount').innerText = 'validity wei ' + validity.toString();
+        document.getElementById('uUnlockAt').innerText = '—';
+        const badge = document.getElementById('uBadge');
+        if (validity > 0n && claimed === 0n) {
+          uMode = 'claimTokens';
+          uCanPull = true;
+          document.getElementById('btnDoUnlock').disabled = false;
+          badge.className = 'badge badge-eligible';
+          badge.innerText = 'READY TO CLAIM';
+          uFeedback('Contributor claim path ready (claimTokens).', 'success');
+        } else if (claimed > 0n) {
+          badge.className = 'badge badge-claimed';
+          badge.innerText = 'ALREADY CLAIMED';
+          uFeedback('This wallet already claimed on that contract.', 'info');
+        } else {
+          badge.className = 'badge badge-ineligible';
+          badge.innerText = 'NOT ELIGIBLE';
+          uFeedback('No locker IDs and no contributor claim for this wallet.', 'error');
+        }
+        return;
+      } catch (e) {
+        // ignore
+      }
+
+      document.getElementById('uPath').innerText = 'unknown';
+      document.getElementById('uLockId').innerText = '—';
+      document.getElementById('uAmount').innerText = '—';
+      document.getElementById('uUnlockAt').innerText = '—';
+      document.getElementById('uBadge').className = 'badge badge-ineligible';
+      document.getElementById('uBadge').innerText = 'UNSUPPORTED';
+      uFeedback('Could not detect a locker unlock or claimTokens path on that contract for this wallet.', 'error');
+    }
+
+    async function executeGenericUnlock() {
+      if (!uCanPull || !userAccount || !window.ethereum) return;
+      const contract = document.getElementById('uContract').value.trim();
+      const btn = document.getElementById('btnDoUnlock');
       btn.disabled = true;
       try {
-        showCapsFeedback('Sending unlock(user, token, id) on Base…', 'info');
         const chainId = await window.ethereum.request({ method: 'eth_chainId' });
         if (chainId !== BASE_CHAIN_ID_HEX) {
-          await window.ethereum.request({
-            method: 'wallet_switchEthereumChain',
-            params: [{ chainId: BASE_CHAIN_ID_HEX }]
-          });
+          await window.ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: BASE_CHAIN_ID_HEX }] });
         }
-        // unlock(address user, address token, uint256 id) = 0x59508f8f
-        const data = '0x59508f8f'
-          + userAccount.slice(2).toLowerCase().padStart(64, '0')
-          + CAPS_TOKEN.slice(2).toLowerCase().padStart(64, '0')
-          + BigInt(capsLockId).toString(16).padStart(64, '0');
+        let data;
+        if (uMode === 'locker') {
+          uFeedback('Sending unlock(user, token, id)…', 'info');
+          data = '0x59508f8f' + padAddr(userAccount) + padAddr(uResolvedToken) + padUint(uLockId);
+        } else if (uMode === 'claimTokens') {
+          uFeedback('Sending claimTokens()…', 'info');
+          data = '0x48c54b9d';
+        } else {
+          throw new Error('Nothing to pull');
+        }
         const txHash = await window.ethereum.request({
           method: 'eth_sendTransaction',
-          params: [{ from: userAccount, to: CAPS_LOCKER, data, value: '0x0' }]
+          params: [{ from: userAccount, to: contract, data, value: '0x0' }]
         });
-        showCapsFeedback('Unlock sent: ' + txHash, 'success');
-        setTimeout(() => { refreshCapsLocker(); loadCapsLock(userAccount); }, 8000);
+        uFeedback('Sent: ' + txHash, 'success');
+        setTimeout(() => scanUnlockContract(), 8000);
       } catch (e) {
-        showCapsFeedback(e.message || String(e), 'error');
+        uFeedback(e.message || String(e), 'error');
         btn.disabled = false;
       }
     }
 
-    // Hook connect to also refresh CAPs bay
-    const _setConnectedAccount = setConnectedAccount;
+    // Keep unlock bay wallet label in sync
+    const __origSetConnected = setConnectedAccount;
     setConnectedAccount = function(addr) {
-      _setConnectedAccount(addr);
-      document.getElementById('capsWalletLabel').innerText = 'Wallet: ' + addr.slice(0, 6) + '…' + addr.slice(-4);
-      document.getElementById('capsStatusDot').classList.add('active');
-      if (document.getElementById('capsBay').style.display !== 'none') loadCapsLock(addr);
+      __origSetConnected(addr);
+      const lab = document.getElementById('uWalletLabel');
+      const dot = document.getElementById('uStatusDot');
+      if (lab) lab.innerText = 'Wallet: ' + shortAddr(addr);
+      if (dot) dot.classList.add('active');
     };
-
-    window.addEventListener('DOMContentLoaded', () => {
-      refreshCapsLocker();
-    });
 
 </script>
 </body>

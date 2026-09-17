@@ -1,19 +1,17 @@
-# Capstiller Claim / Unlock Bay
+# GEAR Reclaim Bay
 
 Live: **https://claim.gearup.wtf**
 
-Two stations on one rusted UI:
-
-## 1. GEAR Reclaim (buyer claim)
+## Main bay — GEAR buyer reclaim
 - Vault `0xc6bA5351b50eee53e09F399407AeD335F792af4C`
-- Token GEAR `0x5880cD05605A549f1DAb01a53ca61Ee559244bD1` (6 decimals)
-- `claimTokens()` — for presale contributors only
+- GEAR `0x5880cD05605A549f1DAb01a53ca61Ee559244bD1` (6 decimals)
+- `claimTokens()` for eligible contributors
 
-## 2. CAPs Unlock (locker — not the same as GEAR claim)
-- Locker `0xA00F87E9D5fA643bd1061BC497D02eFF2E2d5F79`
-- Token CAPSTILLER (CAPs) `0xA0108286307E34e9Ecea184fd08F2d022A12a9C8` (18 decimals)
-- Reads `getIDs(user, token)` + `locks(token, user, id)`
-- Pulls with `unlock(user, token, id)` (`0x59508f8f`) when unlock time has passed
-- Capstiller lock id `1`: 128M CAPs, unlockable since 2025-07-14 UTC
+## Button — Unlock from a contract
+Paste a locker/claimer + token (if needed), connect the owning wallet, Scan, then Pull.
+
+Supports:
+- Locker style: `getIDs` → `locks` → `unlock` (used for CAPSTILLER CAPs locker `0xA00F…5F79` / token `0xA010…9C8`)
+- Claim style: `checkContributorValidity` + `claimTokens` when present
 
 Static Vercel deploy from repo root.
